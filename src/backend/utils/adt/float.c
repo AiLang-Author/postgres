@@ -210,6 +210,11 @@ float4in_internal(char *num, char **endptr_p,
 	errno = 0;
 	val = strtof(num, &endptr);
 
+#ifdef __HAIKU__
+	if (val == 0.0f && *num == 45)
+		val = -val;
+#endif
+
 	/* did we not see anything that looks like a double? */
 	if (endptr == num || errno != 0)
 	{
@@ -415,6 +420,15 @@ float8in_internal(char *num, char **endptr_p,
 
 	errno = 0;
 	val = strtod(num, &endptr);
+
+#ifdef __HAIKU__
+	/*
+	 * Haiku strtod("-0") returns +0.  C99 requires a signed zero.  If the
+	 * scanned token started with - and the value is zero, restore the sign.
+	 */
+	if (val == 0.0 && *num == 45)
+		val = -val;
+#endif
 
 	/* did we not see anything that looks like a double? */
 	if (endptr == num || errno != 0)
