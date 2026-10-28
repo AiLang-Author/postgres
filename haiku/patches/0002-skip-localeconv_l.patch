@@ -1,0 +1,37 @@
+From 89d8453dba8d6e48f1f3354e77b7417551aade4f Mon Sep 17 00:00:00 2001
+From: Bob <bob@pop-os.lan>
+Date: Wed, 28 Oct 2026 18:13:14 -0400
+Subject: [PATCH 2/3] Skip hanging localeconv_l() on Haiku
+
+Haiku's localeconv_l() hangs (localeconv() and uselocale() do not).
+PostgreSQL 18 uses localeconv_l when configure finds HAVE_LOCALECONV_L,
+so to_char(..., '9G999') and money input never return. Force the POSIX
+uselocale+localeconv path.
+
+After this, official int8, money, and numeric regress tests pass on Haiku.
+---
+ src/port/pg_localeconv_r.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/src/port/pg_localeconv_r.c b/src/port/pg_localeconv_r.c
+index 61510b2..87a2a39 100644
+--- a/src/port/pg_localeconv_r.c
++++ b/src/port/pg_localeconv_r.c
+@@ -22,6 +22,14 @@
+ 
+ #include <limits.h>
+ 
++#if defined(__HAIKU__)
++/*
++ * Haiku advertises localeconv_l() (configure sets HAVE_LOCALECONV_L) but the
++ * call hangs.  localeconv() and uselocale() work.  Force the POSIX path.
++ */
++#undef HAVE_LOCALECONV_L
++#endif
++
+ #ifdef MON_THOUSANDS_SEP
+ /*
+  * One of glibc's extended langinfo items detected.  Assume that the full set
+-- 
+2.43.0
+
