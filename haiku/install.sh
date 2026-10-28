@@ -100,8 +100,11 @@ fi
 
 echo "=== configure ==="
 touch src/template/haiku
-touch config/missing
 libtoolize --force --copy --install || true
+# libtoolize can drop config/missing. PostgreSQL's own script has to stay.
+if [ ! -s config/missing ]; then
+	git checkout -- config/missing
+fi
 "$AUTOCONF"
 
 jobs=1
