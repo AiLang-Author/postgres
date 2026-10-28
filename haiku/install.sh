@@ -168,7 +168,7 @@ else
 fi
 
 echo "=== psql ==="
-"$PREFIX/bin/psql" -h 127.0.0.1 -p "$PORT" -c 'SELECT version();' &
+"$PREFIX/bin/psql" -h 127.0.0.1 -p "$PORT" -d postgres -c 'SELECT version();' &
 psql_pid=$!
 i=0
 while kill -0 "$psql_pid" 2>/dev/null; do
@@ -185,5 +185,5 @@ wait "$psql_pid"
 echo
 echo "Installed: $PREFIX/bin"
 echo "Data:      $PGDATA"
-echo "Connect:   psql -h 127.0.0.1 -p $PORT"
+echo "Connect:   psql -h 127.0.0.1 -p $PORT -d postgres"
 echo "Stop:      pg_ctl -D $PGDATA stop"

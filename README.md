@@ -32,14 +32,40 @@ sh /tmp/pg-haiku-install.sh
 
 The script installs the compilers and libraries, applies the port patchset, builds, and installs into `/boot/home/config/non-packaged`. That directory is searched before the packaged `postgresql18`, so `psql` and `libpq` from this build are the ones you get.
 
-It creates a database cluster at `/boot/home/pgdata` if you do not already have one, listens on `127.0.0.1`, and trusts local connections. If port 5432 is already in use, it uses 55432.
+It creates a database cluster at `/boot/home/pgdata` if you do not already have one, listens on `127.0.0.1`, and trusts local connections. If port 5432 is already in use, it uses 55432. A fresh cluster has a database named `postgres`. `psql` with no `-d` tries a database named after your Haiku user, which initdb does not create.
 
 ```sh
-psql -h 127.0.0.1 -p 5432 -c 'SELECT version();'
+psql -h 127.0.0.1 -p 5432 -d postgres -c 'SELECT version();'
 pg_ctl -D /boot/home/pgdata stop
 ```
 
 `PREFIX`, `PGDATA`, and `PORT` override those paths and the port.
+
+### Install the prebuilt x86_64 package
+
+If you do not want to compile, download the release tarball. It is PostgreSQL 18.4 built on Haiku r1beta6 x86_64, with the port and the three runtime fixes already in the binaries. Unpack it over the non-packaged prefix. Haiku searches that prefix before the packaged `postgresql18`.
+
+```sh
+cd /boot/home/config/non-packaged
+curl -fsSL -L -o /tmp/postgresql-18.4-haiku-x86_64.tar.xz \
+  https://github.com/AiLang-Author/postgres/releases/download/postgresql-18.4-haiku/postgresql-18.4-haiku-x86_64.tar.xz
+tar -xJf /tmp/postgresql-18.4-haiku-x86_64.tar.xz
+```
+
+The archive has `bin/`, `lib/`, `include/`, and `share/`. It does not contain a database cluster. SHA256 `6ed0ca2df0306072197c579298621794b117bd4d6b1fb38565db5146753ff04e`. Create a cluster and start the server:
+
+```sh
+PREFIX=/boot/home/config/non-packaged
+PGDATA=/boot/home/pgdata
+"$PREFIX/bin/initdb" -D "$PGDATA" --encoding=UTF8 --no-locale \
+  --auth-local=trust --auth-host=trust --username="$(id -un)"
+printf '%s\n' "listen_addresses = '127.0.0.1'" "port = 5432" \
+  "unix_socket_directories = '/tmp'" >> "$PGDATA/postgresql.conf"
+"$PREFIX/bin/pg_ctl" -D "$PGDATA" -l "$PGDATA/logfile" start
+"$PREFIX/bin/psql" -h 127.0.0.1 -p 5432 -d postgres -c 'SELECT version();'
+```
+
+Stop it with `pg_ctl -D /boot/home/pgdata stop`. The release page is <https://github.com/AiLang-Author/postgres/releases/tag/postgresql-18.4-haiku>. This is not an official PostgreSQL or HaikuPorts package.
 
 ### Build with haikuporter instead
 
