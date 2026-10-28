@@ -22,6 +22,14 @@
 
 #include <limits.h>
 
+#if defined(__HAIKU__)
+/*
+ * Haiku advertises localeconv_l() (configure sets HAVE_LOCALECONV_L) but the
+ * call hangs.  localeconv() and uselocale() work.  Force the POSIX path.
+ */
+#undef HAVE_LOCALECONV_L
+#endif
+
 #ifdef MON_THOUSANDS_SEP
 /*
  * One of glibc's extended langinfo items detected.  Assume that the full set
