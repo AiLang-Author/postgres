@@ -15,6 +15,9 @@
 #include "c.h"
 
 #include <fcntl.h>
+#if defined(__HAIKU__)
+#include <sys/ioctl.h>
+#endif
 
 
 /*
@@ -24,9 +27,23 @@
 bool
 pg_set_noblock(pgsocket sock)
 {
+#if defined(__HAIKU__)
+	int			on = 1;
+#endif
 #if !defined(WIN32)
 	int			flags;
+#endif
 
+#if defined(__HAIKU__)
+	/*
+	 * fcntl(O_NONBLOCK) is visible via F_GETFL, but recv()/send() on TCP and
+	 * AF_UNIX sockets ignore it.  ioctl(FIONBIO) is the flag the network
+	 * stack honors.  Keep the fcntl() update below so F_GETFL matches.
+	 */
+	if (ioctl(sock, FIONBIO, &on) == -1)
+		return false;
+#endif
+#if !defined(WIN32)
 	flags = fcntl(sock, F_GETFL);
 	if (flags < 0)
 		return false;
@@ -48,9 +65,18 @@ pg_set_noblock(pgsocket sock)
 bool
 pg_set_block(pgsocket sock)
 {
+#if defined(__HAIKU__)
+	int			on = 0;
+#endif
 #if !defined(WIN32)
 	int			flags;
+#endif
 
+#if defined(__HAIKU__)
+	if (ioctl(sock, FIONBIO, &on) == -1)
+		return false;
+#endif
+#if !defined(WIN32)
 	flags = fcntl(sock, F_GETFL);
 	if (flags < 0)
 		return false;

@@ -198,7 +198,12 @@ pqsecure_raw_read(PGconn *conn, void *ptr, size_t len)
 
 	SOCK_ERRNO_SET(0);
 
+#ifdef __HAIKU__
+	/* SOCK_NONBLOCK/fcntl O_NONBLOCK do not make recv() nonblocking. */
+	n = recv(conn->sock, ptr, len, MSG_DONTWAIT);
+#else
 	n = recv(conn->sock, ptr, len, 0);
+#endif
 
 	if (n < 0)
 	{
@@ -340,6 +345,10 @@ pqsecure_raw_write(PGconn *conn, const void *ptr, size_t len)
 retry_masked:
 #endif							/* MSG_NOSIGNAL */
 
+#ifdef __HAIKU__
+	flags |= MSG_DONTWAIT;
+#endif
+
 	DISABLE_SIGPIPE(conn, spinfo, return -1);
 
 	n = send(conn->sock, ptr, len, flags);
@@ -354,10 +363,10 @@ retry_masked:
 		 * again, and retry the send().
 		 */
 #ifdef MSG_NOSIGNAL
-		if (flags != 0 && result_errno == EINVAL)
+		if ((flags & MSG_NOSIGNAL) && result_errno == EINVAL)
 		{
 			conn->sigpipe_flag = false;
-			flags = 0;
+			flags &= ~MSG_NOSIGNAL;
 			goto retry_masked;
 		}
 #endif							/* MSG_NOSIGNAL */

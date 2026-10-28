@@ -3364,7 +3364,7 @@ keep_going:						/* We will come back to here until there is
 							goto keep_going;
 						}
 					}
-#ifndef SOCK_NONBLOCK
+#if !defined(SOCK_NONBLOCK) || defined(__HAIKU__)
 					if (!pg_set_noblock(conn->sock))
 					{
 						libpq_append_conn_error(conn, "could not set socket to nonblocking mode: %s",
@@ -3555,6 +3555,22 @@ keep_going:						/* We will come back to here until there is
 					conn->try_next_addr = true;
 					goto keep_going;
 				}
+
+#ifdef __HAIKU__
+				/*
+				 * Haiku defines SOCK_NONBLOCK, so the fcntl() path above is
+				 * skipped, but recv()/send() on TCP and AF_UNIX sockets still
+				 * block.  ioctl(FIONBIO) in pg_set_noblock is the flag that
+				 * actually works; re-apply it after connect() in case the
+				 * handshake dropped it.
+				 */
+				if (!pg_set_noblock(conn->sock))
+				{
+					libpq_append_conn_error(conn, "could not set socket to nonblocking mode: %s",
+											SOCK_STRERROR(SOCK_ERRNO, sebuf, sizeof(sebuf)));
+					goto error_return;
+				}
+#endif
 
 				/* Fill in the client address */
 				conn->laddr.salen = sizeof(conn->laddr.addr);
